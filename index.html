@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>학습 기억법 — 방법을 바꾸면 미래가 보인다</title>
+  <meta name="description" content="연필로 정리하고, 머리에 저장하고, 꺼내는 훈련. 연상 이미지·기억의 궁전·두문자어로 수학·과학·역사·사회·국어·영어를 공부하는 앱" />
+  <meta name="theme-color" content="#14213d" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-row">
+      <a class="brand" href="#/">
+        <span class="brand-mark">🧠</span>
+        <span class="brand-text">
+          <small>방법을 바꾸면 미래가 보인다</small>
+          <strong>학습 기억법</strong>
+        </span>
+      </a>
+      <nav class="topnav">
+        <a href="#/" data-nav="home">처음</a>
+        <a href="#/notes" data-nav="notes">내 기억 노트</a>
+      </nav>
+    </div>
+    <!-- 항상 보이는 학습 원칙 띠 -->
+    <div class="motto-strip" id="motto-strip"></div>
+  </header>
+
+  <main id="app" tabindex="-1"></main>
+
+  <!-- QR 접속 도크: 작게 / 크게 / 숨기기 -->
+  <aside id="qr-dock" class="qr-dock" aria-label="태블릿 접속용 QR 코드"></aside>
+
+  <script src="js/qr.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
