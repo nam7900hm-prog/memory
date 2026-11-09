@@ -3,7 +3,7 @@
    원칙: ✏️ 정리 → 🧠 저장 → 💡 꺼내기 (상단 띠에 항상 표시) */
 (function () {
   "use strict";
-  const T = window.TECHNIQUES, SUBJ = window.SUBJECTS, ST = window.STAGES, SETS = window.CLASS_SETS;
+  const TECHS = window.TECHS, LV = window.LEVELS, TR = window.TRAINING, PAL = window.PALACES, SUBJ = window.SUBJECTS, ST = window.STAGES, SETS = window.CLASS_SETS;
   const $app = document.getElementById("app");
   const $dock = document.getElementById("qr-dock");
   const $strip = document.getElementById("motto-strip");
@@ -25,20 +25,9 @@
   const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const firstChar = (s) => { const t = String(s).trim(); return t ? Array.from(t)[0] : ""; };
   const markFact = (s) => esc(s).replace(/\[(.+?)\]/g, "<mark>$1</mark>");
-  const techById = (id) => T.find((t) => t.id === id);
+  const techById = (id) => TECHS.find((t) => t.id === id);
   const subj = (id) => SUBJ.find((x) => x.id === id) || { id, icon: "📘", color: "#14213d" };
   const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, "").trim();
-
-  /* 단계 종류 → 학습 원칙 단계 */
-  const STEP_META = {
-    explain: { kind: "이해하기", st: ["write"] },
-    gallery: { kind: "과목별 예시", st: ["write"] },
-    quiz: { kind: "확인 문제", st: ["recall"] },
-    order: { kind: "순서 떠올리기", st: ["store", "recall"] },
-    build: { kind: "직접 만들기", st: ["store"] },
-    cycle: { kind: "마무리 활동", st: ["write", "store", "recall"] },
-  };
-  const stageTags = (sts, kind) => `<div class="stage-tags">${sts.map((k) => `<span class="stage-tag ${k}">${ST[k].icon} ${ST[k].name}</span>`).join("")}${kind ? `<span class="stage-tag kind">${esc(kind)}</span>` : ""}</div>`;
 
   /* ---------- 상단 고정 띠 ---------- */
   function renderStrip(active) {
@@ -57,12 +46,10 @@
     $app.innerHTML = "";
     $app.style.removeProperty("--c");
     renderStrip(null);
-    if (parts[0] === "t" && techById(parts[1])) {
-      const tech = techById(parts[1]);
-      $app.style.setProperty("--c", tech.color);
-      if (parts[2] !== undefined && tech.levels[+parts[2]]) renderLesson(tech, +parts[2]);
-      else renderTech(tech);
-    } else if (parts[0] === "notes") renderNotes();
+    if (parts[0] === "t" && TR[parts[1]] && TR[parts[1]][+parts[2]]) renderLesson(parts[1], +parts[2]);
+    else if (parts[0] === "lv" && LV[+parts[1]]) renderLevel(+parts[1]);
+else if (parts[0] === "notes") renderNotes();
+    else if (parts[0] === "class" && parts[1] === "method") renderMethod();
     else if (parts[0] === "class") renderClass(parts[1]);
     else renderHome();
     window.scrollTo(0, 0);
@@ -73,51 +60,27 @@
      처음 화면
      ===================================================================== */
   function renderHome() {
-    const cards = T.map((t, i) => {
-      const dots = t.levels.map((_, li) => `<i class="${store.done[t.id + "-" + li] ? "on" : ""}"></i>`).join("");
-      return `<a class="tech-card" style="--c:${t.color}" href="#/t/${t.id}">
-        <span class="num">STEP ${i + 1}</span><span class="icon">${t.icon}</span>
-        <h3>${esc(t.name)}</h3><p>${esc(t.intro)}</p>
-        <div class="dots" title="기초 · 중급 · 고급">${dots}</div></a>`;
+    const lvCards = LV.map((L, n) => {
+      const list = techsFor(n), done = list.filter((t) => store.done[`${t.id}-${n}`]).length;
+      return `<a class="lv-card" style="--lc:${L.color}" href="#/lv/${n}">
+        <span class="lv-big">${L.level}</span>
+        <span class="lv-desc">${esc(L.desc)}</span>
+        <span class="lv-techs">${list.map((t) => `<i>${t.icon} ${esc(t.name)}</i>`).join("")}</span>
+        <span class="lv-foot"><span class="lv-prog">${done} / ${list.length} 완료</span><span class="lv-go">들어가기 →</span></span></a>`;
     }).join("");
-    const subjects = SUBJ.map((s) => `<span class="subj-chip" style="--sc:${s.color}">${s.icon} ${s.id}</span>`).join("");
     $app.append(h(`<section>
-      <a class="class-banner" href="#/class">
-        <span class="cb-tag">🎬 수업 시작</span>
+      <a class="class-banner" href="#/class/demo">
+        <span class="cb-tag">🎬 수업</span>
         <span class="cb-title">연상 기억 수업</span>
-        <span class="cb-sub">단어 보기 → 1차 꺼내기 → 연상으로 연결 → 머릿속으로 돌리기 → 16칸 최종 꺼내기</span>
+        <span class="cb-sub">파트 1 · 연상 이미지 체험 &nbsp;|&nbsp; 파트 2 · 공부하는 방법</span>
         <span class="cb-go">들어가기 →</span>
       </a>
-
       <div class="hero">
-        <span class="kicker">수학 · 과학 · 역사 · 사회 · 국어 · 영어</span>
         <h1 class="hero-title"><small>방법을 바꾸면 미래가 보인다</small>학습 기억법</h1>
-        <p class="lead">무작정 반복하지 않고, 뇌가 좋아하는 방식으로 바꿔서 외웁니다. 세 가지 기억법을 <b>기초 → 중급 → 고급</b> 순서로 하나씩 익혀 보세요.</p>
-        <div class="subj-row">${subjects}</div>
+        <p class="lead">본문을 읽고 → 요점을 정리하고 → 기억법으로 바꾸고 → 꺼내 봅니다. 단계를 골라 들어가세요.</p>
       </div>
-
-      <div class="principle">
-        <h2>“${esc(window.MOTTO)}”</h2>
-        <p class="sub">모든 활동은 이 세 단계로 진행됩니다. 화면 위쪽 색 띠가 지금 어느 단계인지 알려 줘요.</p>
-        <div class="cycle3">
-          <div class="write"><div class="big">✏️</div><h3>1. 연필로 요점 정리</h3><p>공책에 연필로 핵심만 짧게 적습니다. 손으로 쓰는 동안 머릿속에서 내용이 정리됩니다.</p></div>
-          <div class="store"><div class="big">🧠</div><h3>2. 머리에 저장</h3><p>정리한 내용을 장면·장소·첫 글자로 바꿔 머릿속에 넣습니다. 눈을 감고 3번 되새깁니다.</p></div>
-          <div class="recall"><div class="big">💡</div><h3>3. 꺼내기</h3><p>보지 않고 빈칸에 꺼내 적고, 정리한 것과 비교합니다. 꺼내 본 만큼 오래 남습니다.</p></div>
-        </div>
-      </div>
-
-      <div class="own-principle">
-        <div class="op-icon">🙅‍♀️📎 → 🙋✏️</div>
-        <div><h3>예시는 예시일 뿐! 내가 직접 만든 장면이 진짜 기억입니다</h3>
-        <p>앱의 모든 예시는 '만드는 방법'을 보여 주기 위한 것이에요. 예시를 그대로 외우지 말고, <b>① 내가 아는 단어·장소·친구를 적고 → ② 그것으로 크게·이상하게 과장한 문장을 직접 만들고 → ③ 막힐 때만 예시를 참고</b>하세요.</p></div>
-      </div>
-
-      <div class="path">
-        <div><b>① 기초</b><span>원리를 이해하고 과목별 예시 따라 하기</span></div>
-        <div><b>② 중급</b><span>정의 문장과 풀이 순서에 적용하기</span></div>
-        <div><b>③ 고급</b><span>나만의 기억 장치를 설계하고 셀프 테스트</span></div>
-      </div>
-      <div class="tech-grid">${cards}</div>
+      <div class="lv-grid">${lvCards}</div>
+      <div class="flow-line">${[["📖", "본문 읽기"], ["✏️", "요점 정리"], ["🧩", "기억법 적용"], ["💡", "꺼내기"]].map(([i, t], k) => `${k ? "<span>→</span>" : ""}<b>${i} ${t}</b>`).join("")}</div>
     </section>`));
   }
 
@@ -162,8 +125,9 @@
 
     const root = h(`<section class="class-page">
       <a class="back" href="#/">← 처음으로</a>
+      ${partTabs("word")}
       <div class="class-head">
-        <h1>🎬 연상 기억 수업</h1>
+        <h1>🎬 연상 이미지 체험</h1>
         <div class="set-tabs">${SETS.map((s) => `<a class="set-tab ${s.id === set.id ? "on" : ""}" href="#/class/${s.id}">${esc(s.label)} <small>${classWords(s).length}개</small></a>`).join("")}</div>
       </div>
       <div class="phase-tabs"></div>
@@ -363,63 +327,105 @@
   }
 
   /* =====================================================================
-     기법 / 레슨
+     수업 파트 2: 공부하는 방법 (장면 슬라이드 + 선생님 대본)
      ===================================================================== */
-  function renderTech(tech) {
-    const items = tech.levels.map((lv, i) => `<a class="level-item" href="#/t/${tech.id}/${i}">
-      <span class="level-badge l${i}">${lv.level}</span>
-      <div><h3>${esc(lv.title)}</h3><p>${esc(lv.goal)}</p></div>
-      <span class="check">${store.done[tech.id + "-" + i] ? "✅" : "›"}</span></a>`).join("");
-    $app.append(h(`<section>
-      <a class="back" href="#/">← 처음으로</a>
-      <div class="tech-head"><h1>${tech.icon} ${esc(tech.name)}</h1><p class="muted">${esc(tech.intro)}</p></div>
-      <div class="level-list">${items}</div></section>`));
+  function partTabs(on) {
+    return `<div class="part-tabs">
+      <a class="part-tab ${on === "word" ? "on" : ""}" href="#/class/demo"><small>파트 1</small>🎬 연상 이미지 체험</a>
+      <a class="part-tab ${on === "method" ? "on" : ""}" href="#/class/method"><small>파트 2</small>📚 공부하는 방법</a></div>`;
   }
-
-  function renderLesson(tech, li) {
-    const lv = tech.levels[li];
-    let idx = 0;
-    const root = h(`<section>
-      <a class="back" href="#/t/${tech.id}">← ${esc(tech.name)}</a>
-      <div class="lesson-top"><b>${lv.level}</b><div class="progress"><i></i></div><span class="muted pc"></span></div>
-      <h2>${esc(lv.title)}</h2>
-      <p class="muted">🎯 ${esc(lv.goal)}</p>
-      <div class="card stage" tabindex="-1"></div>
-      <div class="lesson-nav"><button class="btn ghost prev">이전</button><button class="btn next">다음</button></div>
+  const SLIDE_STAGE = { passage: ["write"], underline: ["write"], rules: ["write"], keys: ["write"], acro: ["store"], assoc: ["store"], palaces: ["store"], place: ["store"], link: ["store"], recall: ["recall"] };
+  function bodySVG(active) {
+    const pts = [[100, 38], [100, 88], [100, 140], [100, 212], [100, 262]];
+    const lab = ["머리", "어깨", "배", "무릎", "발"];
+    return `<svg viewBox="0 0 200 290" class="body-svg" aria-label="내 몸 궁전">
+      <circle cx="100" cy="38" r="26" fill="#efe9dd" stroke="#14213d" stroke-width="4"/>
+      <path d="M100 64 V180 M52 88 H148 M100 180 L70 270 M100 180 L130 270 M52 88 L38 150 M148 88 L162 150" stroke="#14213d" stroke-width="6" stroke-linecap="round" fill="none"/>
+      ${pts.map(([x, y], i) => `<g class="bp ${active === i || active === "all" ? "on" : ""}"><circle cx="${x}" cy="${y}" r="15"/><text x="${x}" y="${y + 6}" text-anchor="middle">${i + 1}</text><text class="bl" x="${[136, 172, 172, 150, 150][i]}" y="${y + 6}" text-anchor="start">${lab[i]}</text></g>`).join("")}
+    </svg>`;
+  }
+  function renderMethod() {
+    const M = window.METHOD_LESSON;
+    const st = store.drafts.method || (store.drafts.method = { i: 0, rc: [] });
+    const plain = (t) => esc(t.replace(/\[\[|\]\]/g, ""));
+    const marked = (t) => esc(t).replace(/\[\[(.+?)\]\]/g, '<mark class="ul">$1</mark>');
+    const root = h(`<section class="method-page">
+      <a class="back" href="#/">← 처음으로</a>
+      ${partTabs("method")}
+      <div class="class-head"><h1>📚 ${esc(M.title)}</h1><span class="muted">${esc(M.subtitle)} · 예시: ${esc(M.subject)} 「${esc(M.topic)}」</span></div>
+      <div class="slide-dots"></div>
+      <div class="slide-stage" tabindex="-1"></div>
+      <div class="slide-nav"><button class="btn ghost sp">← 이전 장면</button><span class="sc"></span><button class="btn ghost sf">⛶ 크게</button><button class="btn sn">다음 장면 →</button></div>
+      <div class="talk"></div>
     </section>`);
     $app.append(root);
-    const stage = root.querySelector(".stage"), bar = root.querySelector(".progress > i"), pc = root.querySelector(".pc");
-    const prev = root.querySelector(".prev"), next = root.querySelector(".next");
-    const draftKey = (i) => `${tech.id}-${li}-${i}`;
+    const stage = root.querySelector(".slide-stage"), talk = root.querySelector(".talk"), dots = root.querySelector(".slide-dots");
+    const keyRow = (k) => `<div class="key-line"><span class="kn">${k.n}</span><span class="kh">${esc(k.head)}</span><span class="kt">${esc(k.text)}</span></div>`;
+
+    const SCENE = {
+      overview: () => `<div class="ov4">${[["📖", "읽기", "본문을 두 번 읽고 밑줄"], ["✏️", "요점 정리", "짧게 · 번호 · 5개로"], ["🧩", "기억법", "두문자어 · 연상 이미지"], ["🏛️", "기억의 궁전", "장소에 하나씩 넣고 꺼내기"]].map(([i, a, b], n) => `${n ? '<span class="ov-arrow">→</span>' : ""}<div class="ov-box"><div class="ov-i">${i}</div><b>${n + 1}. ${a}</b><span>${b}</span></div>`).join("")}</div>
+        <p class="sl-topic">오늘의 본문: ${esc(M.subject)} 「${esc(M.topic)}」</p>`,
+      passage: () => `<div class="sl-passage">${M.passage.map((p) => `<p>${plain(p)}</p>`).join("")}</div>`,
+      underline: (sl) => `<div class="sl-passage">${M.passage.map((p) => `<p>${marked(p)}</p>`).join("")}</div>
+        <div class="ul-rules">${sl.rules.map((r) => `<span>✏️ ${esc(r)}</span>`).join("")}</div>`,
+      rules: (sl) => `<div class="ba"><div class="ba-b"><small>본문 문장</small>${esc(sl.before)}</div><div class="ba-arrow">⬇ 줄이기</div><div class="ba-a"><small>요점</small>${esc(sl.after)}</div></div>
+        <ol class="rule-list">${sl.rules.map((r) => `<li>${esc(r)}</li>`).join("")}</ol>`,
+      keys: () => `<div class="key-sheet"><div class="ks-title">📒 암기장 · ${esc(M.topic)}</div>${M.keys.map(keyRow).join("")}</div>`,
+      acro: () => `<div class="acro-row">${M.keys.map((k) => `<div class="acro-cell"><div class="acro-big">${esc(k.acro)}</div><div class="acro-sub">${esc(k.k[0])}</div><div class="acro-head">${esc(k.head)}</div></div>`).join("")}</div>
+        <div class="acro-phrase">“부한 · 의명정”</div><p class="sl-note">↑ 리듬을 붙여 세 번 소리 내어 읽기</p>`,
+      assoc: () => `<div class="own-notice"><b>⚠️ 아래 장면은 예시입니다.</b> 내가 아는 것으로 바꿔 직접 만들어야 내 기억이 됩니다.</div>
+        <div class="assoc-list">${M.keys.map((k, i) => `<div class="assoc-item"><div class="ai-key">${k.n} ${esc(k.head)} <small>${esc(k.text)}</small></div><div class="ai-scene">🎬 ${esc(M.scenes[i])}</div></div>`).join("")}</div>`,
+      palaces: () => `<div class="pal-grid">${M.palaces.map((p) => `<div class="pal-card ${p.id === "body" ? "pick" : ""}"><div class="pal-name">${p.icon} ${esc(p.name)}${p.id === "body" ? ' <span class="pal-tag">오늘 사용</span>' : ""}</div>
+          <div class="pal-places">${p.places.map((x, i) => `<span>${i + 1} ${esc(x)}</span>`).join("")}</div><p>${esc(p.why)}</p></div>`).join("")}</div>`,
+      place: () => `<div class="place-wrap"><div class="body-box">${bodySVG("all")}</div>
+        <div class="place-list">${M.keys.map((k, i) => `<div class="pl-item"><span class="pl-n">${i + 1}</span><div><b>${esc(M.palaces[0].places[i])}</b> ← ${k.n} ${esc(k.head)}<div class="pl-scene">${esc(M.bodyPlace[i])}</div></div></div>`).join("")}</div></div>`,
+      link: () => `<div class="link-table"><div class="lt-head"><span>🏛️ 장소</span><span>🔤 글자</span><span>🎬 연상 장면</span><span>📒 요점</span></div>
+        ${M.keys.map((k, i) => `<div class="lt-row"><span class="lt-place">${esc(M.palaces[0].places[i])}</span><span class="lt-acro">${esc(k.acro)}</span><span class="lt-scene">${esc(M.bodyPlace[i])}</span><span class="lt-key">${esc(k.text)}</span></div>`).join("")}</div>
+        <p class="acro-phrase small">머리부터 발까지 “부 · 한 · 의 · 명 · 정”</p>`,
+      recall: () => `<div class="recall-wrap"><div class="body-box">${bodySVG(null)}</div>
+        <div class="rc-list">${M.keys.map((k, i) => `<label class="rc-item"><span class="rc-cue">${i + 1}. <b class="cue" hidden>${esc(M.palaces[0].places[i])} · ${esc(k.acro)}</b></span><input type="text" data-i="${i}" placeholder="${i + 1}번째 요점" value="${esc(st.rc[i] || "")}"><span class="rc-ans" hidden>${esc(k.text)}</span></label>`).join("")}
+        <div class="row" style="margin-top:10px"><button class="btn soft sm cue-btn">💡 단서 보기 (장소·글자)</button><button class="btn sm ans-btn">정답 보기</button></div><div class="rc-score"></div></div></div>`,
+      wrap: () => `<div class="ov4 small">${["📖 읽기", "✏️ 요점 정리", "🧩 기억법", "🏛️ 궁전"].map((x, n) => `${n ? '<span class="ov-arrow">→</span>' : ""}<div class="ov-box"><b>${x}</b></div>`).join("")}</div>
+        <div class="review3"><div><b>오늘 저녁</b><span>몸 짚으며 1번</span></div><div><b>내일</b><span>5칸 적기</span></div><div><b>일주일 뒤</b><span>거꾸로 말하기</span></div></div>`,
+    };
 
     function show() {
-      if (cleanup) { cleanup(); cleanup = null; }
-      const step = lv.steps[idx], meta = STEP_META[step.type];
-      bar.style.width = ((idx + 1) / (lv.steps.length + 1)) * 100 + "%";
-      pc.textContent = `${idx + 1} / ${lv.steps.length}`;
-      prev.disabled = idx === 0;
-      next.textContent = idx === lv.steps.length - 1 ? "완료하기 ✓" : "다음";
-      stage.style.setProperty("--stc", `var(--st-${meta.st[0]})`);
-      renderStrip(meta.st);
-      stage.innerHTML = stageTags(meta.st, meta.kind);
-      RENDER[step.type](stage, step, draftKey(idx), tech);
+      const i = st.i, sl = M.slides[i];
+      save();
+      renderStrip(SLIDE_STAGE[sl.kind] || null);
+      dots.innerHTML = M.slides.map((x, n) => `<button class="sdot ${n === i ? "on" : ""} ${(SLIDE_STAGE[x.kind] || ["none"])[0]}" data-n="${n}" title="${esc(x.title)}">${n + 1}</button>`).join("");
+      dots.querySelectorAll(".sdot").forEach((b) => (b.onclick = () => { st.i = +b.dataset.n; show(); }));
+      stage.innerHTML = `<div class="sl-count">장면 ${i + 1} / ${M.slides.length}</div><h2 class="sl-title">${esc(sl.title)}</h2>${SCENE[sl.kind](sl)}`;
+      talk.innerHTML = `<div class="talk-head">🎤 선생님 설명</div>${sl.talk.map((t) => `<p>${esc(t)}</p>`).join("")}${sl.ask ? `<div class="talk-ask">🙋 ${esc(sl.ask)}</div>` : ""}`;
+      root.querySelector(".sc").textContent = `${i + 1} / ${M.slides.length}`;
+      root.querySelector(".sp").disabled = i === 0;
+      root.querySelector(".sn").disabled = i === M.slides.length - 1;
+      if (sl.kind === "recall") {
+        stage.querySelectorAll("input").forEach((inp) => inp.addEventListener("input", () => { st.rc[+inp.dataset.i] = inp.value; save(); }));
+        stage.querySelector(".cue-btn").onclick = () => stage.querySelectorAll(".cue").forEach((c) => (c.hidden = false));
+        stage.querySelector(".ans-btn").onclick = () => {
+          let ok = 0;
+          stage.querySelectorAll(".rc-item").forEach((row, n) => {
+            const v = norm(row.querySelector("input").value);
+            const hit = v && M.keys[n].k.some((w) => v.includes(norm(w)));
+            if (hit) ok++;
+            row.classList.toggle("hit", !!hit); row.classList.toggle("miss", !hit);
+            row.querySelector(".rc-ans").hidden = false;
+          });
+          stage.querySelector(".rc-score").innerHTML = `<div class="score-line">${ok} / 5 꺼냈어요 ${ok === 5 ? "🎉" : "— 틀린 칸은 장면을 더 크게 바꿔 보세요"}</div>`;
+        };
+      }
     }
-    function finish() {
-      store.done[tech.id + "-" + li] = true; save();
-      bar.style.width = "100%";
-      const nextLv = tech.levels[li + 1], nextTech = T[T.indexOf(tech) + 1];
-      const nextLink = nextLv ? `<a class="btn" href="#/t/${tech.id}/${li + 1}">${nextLv.level} 단계로 →</a>`
-        : nextTech ? `<a class="btn" href="#/t/${nextTech.id}">다음 기억법: ${esc(nextTech.name)} →</a>` : `<a class="btn" href="#/notes">내 기억 노트 보기 →</a>`;
-      stage.innerHTML = "";
-      stage.append(h(`<div class="done-box"><div class="big">🎉</div><h2>${lv.level} 완료!</h2>
-        <p class="muted">💡 꺼내기는 한 번으로 끝나지 않아요. 내일 한 번, 일주일 뒤 한 번 더 꺼내 보면 오래 남습니다.</p>
-        <div class="row" style="justify-content:center"><a class="btn ghost" href="#/t/${tech.id}">목록으로</a>${nextLink}</div></div>`));
-      root.querySelector(".lesson-nav").style.display = "none";
-      pc.textContent = "완료";
-      renderStrip(null);
-    }
-    prev.onclick = () => { if (idx > 0) { idx--; show(); window.scrollTo({ top: 0, behavior: "smooth" }); } };
-    next.onclick = () => { if (idx < lv.steps.length - 1) { idx++; show(); window.scrollTo({ top: 0, behavior: "smooth" }); } else finish(); };
+    root.querySelector(".sp").onclick = () => { if (st.i > 0) { st.i--; show(); } };
+    root.querySelector(".sn").onclick = () => { if (st.i < M.slides.length - 1) { st.i++; show(); } };
+    root.querySelector(".sf").onclick = () => { try { (stage.requestFullscreen || stage.webkitRequestFullscreen).call(stage); } catch (e) { /* 전체 화면 불가 */ } };
+    const onKey = (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (e.key === "ArrowRight" && st.i < M.slides.length - 1) { st.i++; show(); }
+      if (e.key === "ArrowLeft" && st.i > 0) { st.i--; show(); }
+    };
+    document.addEventListener("keydown", onKey);
+    cleanup = () => document.removeEventListener("keydown", onKey);
     show();
   }
 
@@ -449,229 +455,29 @@
     return box;
   }
   /* 예시는 내 장면을 먼저 적은 뒤에 열린다 */
-  function revealGate(d, label, buildContent) {
+  function revealGate(d, label, buildContent, hasOwn, opt) {
+    hasOwn = hasOwn || (() => String(d.s || "").trim());
+    opt = opt || {};
     const wrap = h(`<div class="gate"><button class="btn soft gate-btn">👀 ${esc(label)}</button><div class="gate-msg"></div><div class="gate-body" hidden></div></div>`);
     const btn = wrap.querySelector(".gate-btn"), body = wrap.querySelector(".gate-body"), msg = wrap.querySelector(".gate-msg");
     const open = () => {
       btn.remove(); msg.innerHTML = ""; body.hidden = false;
-      body.append(h(`<div class="ref-head">📎 참고 예시 — 외우지 마세요! 만드는 <b>방법</b>만 가져가세요</div>`));
+      body.append(h(`<div class="ref-head">${opt.head || "📎 참고 예시 — 외우지 마세요! 만드는 <b>방법</b>만 가져가세요"}</div>`));
       buildContent(body);
-      body.append(h(`<div class="after-ref">✏️ 이제 예시에서 배운 방법으로 <b>위의 내 문장을 더 과장해서 고쳐</b> 보세요. 내 장면이 예시보다 이상하고 재미있으면 성공!</div>`));
-      d.opened = true; save();
+      if (opt.after !== "") body.append(h(`<div class="after-ref">✏️ 이제 예시에서 배운 방법으로 <b>위의 내 것을 더 과장해서 고쳐</b> 보세요. 내 장면이 예시보다 이상하고 재미있으면 성공!</div>`));
+      d[opt.flag || "opened"] = true; save();
     };
     btn.onclick = () => {
-      if (!String(d.s || "").trim() && !btn.dataset.warned) {
+      if (!hasOwn() && !btn.dataset.warned) {
         btn.dataset.warned = "1"; btn.textContent = "👀 그래도 예시 보기";
-        msg.innerHTML = `<div class="feedback bad">먼저 위 칸에 한 줄이라도 <b>내 장면</b>을 적어 보세요. 서툴러도 괜찮아요!</div>`;
+        msg.innerHTML = `<div class="feedback bad">먼저 위 칸에 한 줄이라도 <b>내 것</b>을 적어 보세요. 서툴러도 괜찮아요!</div>`;
         return;
       }
       open();
     };
-    if (d.opened) open();
+    if (d[opt.flag || "opened"]) open();
     return wrap;
   }
-
-  /* ---------- 과목 탭 ---------- */
-  function subjectTabs(list, current, onPick) {
-    const wrap = h(`<div class="subj-tabs" role="tablist">${list.map((x, i) => { const s = subj(x.subject); return `<button class="subj-tab ${i === current ? "on" : ""}" style="--sc:${s.color}" data-i="${i}" role="tab">${s.icon} ${s.id}</button>`; }).join("")}</div>`);
-    wrap.querySelectorAll("button").forEach((b) => (b.onclick = () => {
-      wrap.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
-      onPick(+b.dataset.i);
-    }));
-    return wrap;
-  }
-
-  /* ---------- 단계별 렌더러 ---------- */
-  const RENDER = {
-    explain(el, s) {
-      el.append(h(`<div><h3>${esc(s.title)}</h3>${s.body.map((p) => `<p>${esc(p)}</p>`).join("")}
-        <div class="tips">${s.tips.map((t) => `<div>✔ ${esc(t)}</div>`).join("")}</div></div>`));
-    },
-
-    gallery(el, s, key) {
-      const d = store.drafts[key] || (store.drafts[key] = { i: 0, tries: {}, own: {} });
-      d.own = d.own || {};
-      el.append(h(`<div><h3>${esc(s.title)}</h3><p class="muted">과목 탭을 고르세요. 순서: ① 외울 내용 보기 → ② 내가 아는 단어로 직접 만들기 → ③ 예시 참고 → ④ 내 장면 고치기</p></div>`));
-      const body = h(`<div></div>`);
-      const drawEx = (i) => {
-        d.i = i; save();
-        const ex = s.examples[i], sc = subj(ex.subject);
-        const od = d.own[i] || (d.own[i] = {});
-        body.innerHTML = "";
-        const card = h(`<div class="ex-card" style="--sc:${sc.color}">
-          <span class="ex-subj">${sc.icon} ${sc.id}</span>
-          <div class="fact"><div class="term">${esc(ex.term)}</div><div>${markFact(ex.fact)}</div></div>
-          ${OWN_NOTICE}
-          <div class="own-slot"></div>
-          <div class="gate-slot"></div>
-          <div class="try-box">💡 한 번 더 연습: ${esc(ex.tryit)}<textarea placeholder="이번에도 내가 아는 단어와 장면으로 적어 보세요">${esc(d.tries[i] || "")}</textarea></div>
-          <div class="ex-nav"><button class="btn ghost sm pv">← 이전 과목</button><span class="muted">${i + 1} / ${s.examples.length}</span><button class="btn sm nx">다음 과목 →</button></div>
-        </div>`);
-        card.querySelector(".own-slot").append(ownMaker(od, { target: ex.term }));
-        card.querySelector(".gate-slot").append(revealGate(od, "예시 참고하기", (bd) => {
-          bd.append(h(`<ol class="ladder">${ex.scene.map(([a, b]) => `<li><b>${esc(a)}</b><span>${esc(b)}</span></li>`).join("")}</ol>`));
-          bd.append(h(`<div class="explain-box"><h4>🔍 이 예시는 어떤 방법으로 만들었을까? — 자세한 설명</h4>${ex.explain.map((p) => `<p>${esc(p)}</p>`).join("")}</div>`));
-        }));
-        card.querySelector(".try-box textarea").addEventListener("input", (e) => { d.tries[i] = e.target.value; save(); });
-        const pv = card.querySelector(".pv"), nx = card.querySelector(".nx");
-        pv.disabled = i === 0; nx.disabled = i === s.examples.length - 1;
-        pv.onclick = () => tabs.querySelectorAll("button")[i - 1].click();
-        nx.onclick = () => tabs.querySelectorAll("button")[i + 1].click();
-        body.append(card);
-      };
-      const tabs = subjectTabs(s.examples, d.i, (i) => { drawEx(i); tabs.scrollIntoView({ block: "nearest", behavior: "smooth" }); });
-      el.append(tabs, body);
-      drawEx(d.i);
-    },
-
-    quiz(el, s) {
-      const box = h(`<div><h3>${esc(s.title)}</h3><p style="font-size:18px;font-weight:600">${esc(s.q)}</p><div class="options"></div><div class="fb"></div></div>`);
-      const opts = box.querySelector(".options"), fb = box.querySelector(".fb");
-      s.options.forEach((o, i) => {
-        const b = h(`<button class="opt">${esc(o)}</button>`);
-        b.onclick = () => {
-          if (opts.dataset.solved) return;
-          if (i === s.answer) { b.classList.add("correct"); opts.dataset.solved = "1"; fb.innerHTML = `<div class="feedback good">정답! ${esc(s.why)}</div>`; }
-          else { b.classList.remove("wrong"); void b.offsetWidth; b.classList.add("wrong"); fb.innerHTML = `<div class="feedback bad">다시 한 번! 장면을 떠올려 보세요.</div>`; }
-        };
-        opts.append(b);
-      });
-      el.append(box);
-    },
-
-    order(el, s, key) {
-      const hasPlace = s.items.some((x) => x.place);
-      const d = store.drafts[key] || (store.drafts[key] = { mine: [] });
-      const box = h(`<div><h3>${esc(s.title)}</h3><p>${esc(s.prompt)}</p>
-        ${OWN_NOTICE}
-        <p class="own-title" style="margin-top:12px">✏️ 항목마다 <u>내가 아는 단어·장면</u>으로 과장된 장면을 적어 저장하세요. 그다음 가리고 꺼냅니다.</p>
-        <div class="study">${s.items.map((x, i) => `<div class="study-card">
-          <div class="${hasPlace ? "place" : "item"}">${esc(hasPlace ? x.place : x.item)}</div>
-          <div>${hasPlace ? `<div class="item">${esc(x.item)}</div>` : ""}
-            <input type="text" class="mine" data-i="${i}" placeholder="내 장면 (예: 우리 집 ○○이 …)" value="${esc(d.mine[i] || "")}">
-            ${x.image ? `<details class="ref-mini"><summary>📎 예시 살짝 보기 (참고만)</summary>${esc(x.image)}</details>` : ""}
-          </div></div>`).join("")}</div>
-        ${s.story ? `<details class="ref-mini story-ref"><summary>📎 예시 이야기 보기 (참고만 — 내 이야기로 바꾸세요)</summary>${esc(s.story)}</details>` : ""}
-        <button class="btn go">🧠 내 장면으로 저장했어요 — 가리고 꺼내기</button>
-        <div class="test" hidden><div class="slots"></div><p class="muted">💡 내 장면을 떠올리며 순서대로 눌러 꺼내 보세요.</p><div class="pool"></div><div class="fb"></div></div></div>`);
-      box.querySelectorAll(".mine").forEach((inp) => inp.addEventListener("input", () => { d.mine[+inp.dataset.i] = inp.value; save(); }));
-      const study = box.querySelector(".study"), go = box.querySelector(".go"), test = box.querySelector(".test"), storyEl = box.querySelector(".story-ref");
-      go.onclick = () => {
-        study.hidden = true; go.hidden = true; if (storyEl) storyEl.hidden = true; test.hidden = false;
-        renderStrip(["recall"]);
-        const slots = test.querySelector(".slots"), pool = test.querySelector(".pool"), fb = test.querySelector(".fb");
-        slots.innerHTML = s.items.map((x, i) => `<div class="slot"><span class="place">${esc(hasPlace ? x.place : i + 1 + "번째")}</span><span class="val"></span></div>`).join("");
-        let pos = 0;
-        shuffle(s.items.map((x, i) => ({ ...x, i }))).forEach((x) => {
-          const b = h(`<button class="chip-btn">${esc(x.item)}</button>`);
-          b.onclick = () => {
-            if (x.i === pos) {
-              const slot = slots.children[pos]; slot.classList.add("filled"); slot.querySelector(".val").textContent = x.item; b.remove(); pos++;
-              if (pos === s.items.length) fb.innerHTML = `<div class="feedback good">완벽해요! 내 장면으로 모든 순서를 꺼냈어요. 🎯</div>`;
-            } else {
-              b.classList.remove("wrong"); void b.offsetWidth; b.classList.add("wrong");
-              const mine = d.mine[pos];
-              fb.innerHTML = `<div class="feedback bad">${hasPlace ? `'${esc(s.items[pos].place)}'에 무엇을 놓았었죠?` : `${pos + 1}번째 장면을 떠올려 보세요.`}${mine ? ` 내 장면 힌트: “${esc(mine.slice(0, 12))}…”` : ""}</div>`;
-            }
-          };
-          pool.append(b);
-        });
-        const again = h(`<button class="btn soft sm" style="margin-top:14px">다시 보기</button>`);
-        again.onclick = () => { study.hidden = false; go.hidden = false; if (storyEl) storyEl.hidden = false; test.hidden = true; again.remove(); renderStrip(["store", "recall"]); };
-        test.append(again);
-      };
-      el.append(box);
-    },
-
-    build(el, s, key, tech) {
-      el.append(h(`<div><h3>${esc(s.title)}</h3>${s.prompt ? `<p>${esc(s.prompt)}</p>` : ""}</div>`));
-      const area = h(`<div></div>`);
-      const pick = (i) => {
-        const d = store.drafts[key] || (store.drafts[key] = {});
-        d.sel = i; save();
-        area.innerHTML = "";
-        BUILD[s.kind](area, s, `${key}-${i}`, tech, s.tasks ? s.tasks[i] : null);
-      };
-      const cur = (store.drafts[key] && store.drafts[key].sel) || 0;
-      el.append(h(OWN_NOTICE));
-      if (s.tasks) el.append(h(`<p class="muted" style="margin:10px 0 0">📚 과목을 고르세요</p>`), subjectTabs(s.tasks, cur, pick));
-      el.append(area);
-      pick(cur);
-    },
-
-    cycle(el, s, key, tech) {
-      const d = store.drafts[key] || (store.drafts[key] = { p: 0, memo: "", recall: "", penciled: false });
-      const keys = ["write", "store", "recall"];
-      let timer2 = null;
-      cleanup = () => clearInterval(timer2);
-      const wrap = h(`<div><h3>${esc(s.title)}</h3><p>오늘 배운 <b>${esc(s.topic)}</b>을(를) 세 단계로 내 것으로 만듭니다.</p>
-        <div class="cy-steps">${keys.map((k, i) => `<span class="${k}">${ST[k].icon} ${i + 1}. ${ST[k].short}</span>`).join("")}</div><div class="cy-body"></div></div>`);
-      const body = wrap.querySelector(".cy-body");
-      const setP = (p) => {
-        clearInterval(timer2);
-        d.p = p; save();
-        wrap.querySelectorAll(".cy-steps span").forEach((x, i) => x.classList.toggle("on", i === p));
-        renderStrip([keys[p]]);
-        body.innerHTML = "";
-        if (p === 0) {
-          const pnl = h(`<div class="cy-panel" style="--pc:var(--st-write)"><h3>✏️ 1. 연필로 요점 정리</h3>
-            <p>공책을 펴고 <b>연필로</b> 아래 질문에 답하며 요점을 정리하세요. 문장은 짧게, 핵심 단어 위주로!</p>
-            <ol class="guide-list">${s.guide.map((g) => `<li>${esc(g)}</li>`).join("")}</ol>
-            <label class="check-line"><input type="checkbox" ${d.penciled ? "checked" : ""}> 공책에 연필로 정리했어요</label>
-            <label class="field">정리한 핵심을 여기에도 옮겨 적어 두세요 (꺼내기 후 비교할 때 사용해요)</label>
-            <textarea class="memo" placeholder="예) 연상 이미지 = ① 소리 바꾸기 ② 뜻을 행동으로 / 규칙: 크게·움직이게·이상하게·감각">${esc(d.memo)}</textarea>
-            <div class="row" style="margin-top:12px"><span class="spacer"></span><button class="btn nx">🧠 저장 단계로 →</button></div></div>`);
-          pnl.querySelector("input").onchange = (e) => { d.penciled = e.target.checked; save(); };
-          pnl.querySelector(".memo").addEventListener("input", (e) => { d.memo = e.target.value; save(); });
-          pnl.querySelector(".nx").onclick = () => setP(1);
-          body.append(pnl);
-        } else if (p === 1) {
-          const memo = d.memo.trim() || s.guide.join("\n");
-          const pnl = h(`<div class="cy-panel" style="--pc:var(--st-store)"><h3>🧠 2. 머리에 저장</h3>
-            <p>아래 정리를 <b>소리 내어 3번</b> 읽고, 시작 버튼을 누른 뒤 눈을 감고 30초 동안 머릿속으로 되새기세요. 시작하면 글이 가려집니다.</p>
-            <div class="memo-show">${esc(memo)}</div>
-            <div class="timer" style="--p:0"><div>30</div></div>
-            <div class="row" style="justify-content:center"><button class="btn tg">▶ 30초 저장 시작</button><button class="btn ghost nx">💡 꺼내기 단계로 →</button></div></div>`);
-          const ms = pnl.querySelector(".memo-show"), tm = pnl.querySelector(".timer"), tn = tm.firstElementChild;
-          pnl.querySelector(".tg").onclick = (e) => {
-            e.target.disabled = true; ms.classList.add("covered"); let t = 30;
-            timer2 = setInterval(() => { t--; tn.textContent = t; tm.style.setProperty("--p", ((30 - t) / 30) * 100); if (t <= 0) { clearInterval(timer2); tn.textContent = "끝!"; } }, 1000);
-          };
-          pnl.querySelector(".nx").onclick = () => setP(2);
-          body.append(pnl);
-        } else {
-          const pnl = h(`<div class="cy-panel" style="--pc:var(--st-recall)"><h3>💡 3. 꺼내기</h3>
-            <p>정리한 것을 <b>보지 말고</b>, 기억나는 대로 아래에 모두 적어 보세요. 그다음 '비교하기'를 누르세요.</p>
-            <textarea class="rc" style="min-height:150px" placeholder="기억나는 대로 적어 보세요">${esc(d.recall)}</textarea>
-            <div class="row" style="margin-top:12px"><button class="btn ghost bk">← 다시 저장하기</button><span class="spacer"></span><button class="btn cmp">비교하기</button></div>
-            <div class="cmp-out"></div></div>`);
-          pnl.querySelector(".rc").addEventListener("input", (e) => { d.recall = e.target.value; save(); });
-          pnl.querySelector(".bk").onclick = () => setP(1);
-          pnl.querySelector(".cmp").onclick = () => {
-            const memo = d.memo.trim(), rec = d.recall.trim(), out = pnl.querySelector(".cmp-out");
-            if (!rec) { out.innerHTML = `<div class="feedback bad">먼저 기억나는 것을 적어 주세요.</div>`; return; }
-            if (!memo) {
-              out.innerHTML = `<div class="feedback good">공책에 연필로 정리한 내용과 직접 비교해 보세요. 빠진 부분에 빨간 펜으로 표시하면, 그곳이 다음에 다시 꺼내 볼 곳입니다.</div>`;
-            } else {
-              const tokens = (t) => (t.match(/[가-힣A-Za-z0-9²√±+\-=]{2,}/g) || []);
-              const recN = norm(rec);
-              const memoT = [...new Set(tokens(memo))];
-              const hit = memoT.filter((w) => recN.includes(norm(w)));
-              const pct = memoT.length ? Math.round((hit.length / memoT.length) * 100) : 0;
-              const marked = esc(memo).replace(/[가-힣A-Za-z0-9²√±+\-=]{2,}/g, (w) => (recN.includes(norm(w)) ? `<span class="hit">${w}</span>` : `<span class="miss">${w}</span>`));
-              out.innerHTML = `<div class="score-line">핵심 단어 ${hit.length} / ${memoT.length}개 꺼냄 (${pct}%)</div>
-                <div class="compare"><div><h4>✏️ 내가 정리한 것 <small class="muted">(분홍 = 못 꺼낸 단어)</small></h4>${marked}</div><div><h4>💡 내가 꺼낸 것</h4>${esc(rec)}</div></div>
-                <p class="muted" style="margin-top:10px">분홍색 단어를 공책에 빨간 펜으로 표시하고, 그 부분만 장면을 더 강하게 만들어 내일 다시 꺼내 보세요.</p>`;
-            }
-            addNote(tech, "정리→저장→꺼내기", s.topic, `✏️ 정리\n${memo || "(공책에 정리)"}\n\n💡 꺼낸 것\n${rec}`, key);
-          };
-          body.append(pnl);
-        }
-      };
-      el.append(wrap);
-      setP(d.p || 0);
-    },
-  };
 
   /* ---------- 직접 만들기 ---------- */
   function addNote(tech, kind, title, body, key) {
@@ -687,155 +493,286 @@
     setTimeout(() => (m.textContent = ""), 2500);
   }
 
-  const BUILD = {
-    image(el, s, key, tech, task) {
-      const d = store.drafts[key] || {};
+  /* =====================================================================
+     단계 화면 (기초 · 중급 · 고급) — 먼저 보기 + 훈련 고르기
+     ===================================================================== */
+  const keyList = (keys, cls) => `<div class="key-sheet ${cls || ""}">${keys.map((k, i) => `<div class="key-line"><span class="kn">${i + 1}</span><span class="kh">${esc(k.head)}</span><span class="kt">${esc(k.text || "")}</span></div>`).join("")}</div>`;
+  const passageHTML = (text) => `<div class="sl-passage">${text.map((p) => `<p>${esc(p)}</p>`).join("")}</div>`;
+  const acroOf = (k) => k.acro || firstChar(k.head);
+  const palById = (id) => PAL.find((p) => p.id === id) || PAL[0];
+  const techsFor = (n) => TECHS.filter((t) => TR[t.id] && TR[t.id][n]);
+
+  function demoView(n, techId) {
+    const D = LV[n].demo, pal = palById(D.palace.id);
+    const assoc = `<div class="assoc-list">${D.keys.map((k, i) => `<div class="assoc-item"><div class="ai-key">${i + 1}. ${esc(k.head)} <small>${esc(k.text)}</small></div><div class="ai-scene">🎬 ${esc(D.assoc[i])}</div></div>`).join("")}</div>`;
+    const palace = `<p class="demo-pal">${pal.icon} <b>${esc(pal.name)}</b> 궁전 사용 — ${D.palace.places.map(esc).join(" → ")}</p>
+      <div class="place-list">${D.keys.map((k, i) => `<div class="pl-item"><span class="pl-n">${i + 1}</span><div><b>${esc(D.palace.places[i])}</b> ← ${esc(k.head)}<div class="pl-scene">${esc(D.palace.scenes[i])}</div></div></div>`).join("")}</div>`;
+    const acro = `<div class="acro-row">${D.keys.map((k) => `<div class="acro-cell"><div class="acro-big">${esc(acroOf(k))}</div><div class="acro-sub">${esc(k.head)}</div></div>`).join("")}</div>
+      <div class="acro-phrase small">“${esc(D.acro.phrase)}”</div><p class="sl-note">${esc(D.acro.note)}</p>`;
+    const combo = `<div class="acro-phrase small">🔤 “${esc(D.acro.phrase)}”</div>
+      <div class="link-table"><div class="lt-head"><span>🏛️ 장소</span><span>🔤 글자</span><span>🎬 장면</span><span>📒 요점</span></div>
+      ${D.keys.map((k, i) => `<div class="lt-row"><span class="lt-place">${esc(D.palace.places[i])}</span><span class="lt-acro">${esc(acroOf(k))}</span><span class="lt-scene">${esc(D.palace.scenes[i])}</span><span class="lt-key">${esc(k.head)} — ${esc(k.text)}</span></div>`).join("")}</div>
+      <p class="sl-note">두문자어가 순서와 개수를, 궁전이 꺼낼 위치를, 장면이 내용을 지켜 줍니다.</p>`;
+    return { assoc, palace, acro, combo }[techId];
+  }
+
+  function renderLevel(n) {
+    const L = LV[n], D = L.demo;
+    const tabs = [["assoc", "🖼️ 연상 이미지"], ["palace", "🏛️ 기억의 궁전"], ["acro", "🔤 두문자어"], ["combo", "🧩 3가지 함께"]];
+    const cards = techsFor(n).map((t) => {
+      const T2 = TR[t.id][n], done = store.done[`${t.id}-${n}`];
+      return `<a class="tr-card" style="--c:${t.color}" href="#/t/${t.id}/${n}">
+        <span class="tr-icon">${t.icon}</span>
+        <div class="tr-body"><b>${esc(t.name)}</b><span class="tr-title">${esc(T2.title)}</span>
+          <span class="tr-subj">${T2.passages.map((P) => { const s = subj(P.subject); return `<i style="--sc:${s.color}">${s.icon} ${esc(P.subject)} · ${esc(P.title)}</i>`; }).join("")}</span></div>
+        <span class="check">${done ? "✅" : "›"}</span></a>`;
+    }).join("");
+    const root = h(`<section>
+      <a class="back" href="#/">← 처음으로</a>
+      <div class="lv-head" style="--lc:${L.color}"><span class="lv-badge">${L.level}</span><div><h1>${L.level} 훈련</h1><p class="muted">${esc(L.desc)}</p></div></div>
+
+      <div class="card demo-card">
+        <h2>👀 먼저 보기 — 같은 본문을 기억법으로 바꾸는 과정</h2>
+        <p class="muted">${esc(D.subject)} 「${esc(D.title)}」로 ① 본문 → ② 요점 정리 → ③ 기억법 순서를 먼저 봅니다. 아래 장면은 방법을 보여 주는 예시예요.</p>
+        <div class="demo-step"><span class="ds-n write">① 본문</span>${passageHTML(D.text)}</div>
+        <div class="demo-step"><span class="ds-n write">② 요점 정리</span>${keyList(D.keys)}</div>
+        <div class="demo-step"><span class="ds-n store">③ 기억법 적용</span>
+          <div class="demo-tabs">${tabs.map(([id, nm], i) => `<button class="demo-tab ${i ? "" : "on"}" data-t="${id}">${nm}</button>`).join("")}</div>
+          <div class="demo-body">${demoView(n, "assoc")}</div></div>
+      </div>
+
+      <h2 style="margin-top:28px">✏️ 훈련 고르기</h2>
+      <p class="muted">각 훈련은 <b>사용법 먼저 보기 → ① 본문 읽기 → ② 요점 정리 → ③ 기억법 적용 → ④ 꺼내기</b> 순서로 진행됩니다.</p>
+      <div class="tr-list">${cards}</div>
+      ${LV[n + 1] ? `<a class="btn ghost" style="margin-top:18px" href="#/lv/${n + 1}">${LV[n + 1].level} 단계로 →</a>` : ""}
+    </section>`);
+    root.querySelectorAll(".demo-tab").forEach((b) => (b.onclick = () => {
+      root.querySelectorAll(".demo-tab").forEach((x) => x.classList.toggle("on", x === b));
+      root.querySelector(".demo-body").innerHTML = demoView(n, b.dataset.t);
+    }));
+    $app.append(root);
+  }
+
+  /* =====================================================================
+     훈련: 사용법 → ① 본문 읽기 → ② 요점 정리 → ③ 기억법 적용 → ④ 꺼내기
+     ===================================================================== */
+  const LSTEP = {
+    howto: { name: "사용법 먼저 보기", st: null },
+    read: { name: "① 본문 읽기", st: ["write"] },
+    keys: { name: "② 요점 정리", st: ["write"] },
+    apply: { name: "③ 기억법 적용", st: ["store"] },
+    recall: { name: "④ 꺼내기", st: ["recall"] },
+  };
+
+  function renderLesson(techId, n) {
+    const tech = techById(techId), TD = TR[techId][n], L = LV[n];
+    const steps = [{ t: "howto" }];
+    TD.passages.forEach((P, pi) => ["read", "keys", "apply", "recall"].forEach((t) => steps.push({ t, P, pi })));
+    let idx = 0;
+    const root = h(`<section>
+      <a class="back" href="#/lv/${n}">← ${L.level} 훈련</a>
+      <div class="lesson-top"><b style="color:${L.color}">${L.level}</b><div class="progress"><i></i></div><span class="muted pc"></span></div>
+      <h2>${tech.icon} ${esc(tech.name)} · ${esc(TD.title)}</h2>
+      <p class="muted">🎯 ${esc(TD.goal)}</p>
+      <div class="track"></div>
+      <div class="card stage" tabindex="-1"></div>
+      <div class="lesson-nav"><button class="btn ghost prev">이전</button><button class="btn next">다음</button></div>
+    </section>`);
+    $app.style.setProperty("--c", tech.color);
+    $app.append(root);
+    const stage = root.querySelector(".stage"), bar = root.querySelector(".progress > i"), pc = root.querySelector(".pc");
+    const prev = root.querySelector(".prev"), next = root.querySelector(".next"), track = root.querySelector(".track");
+    const goStep = (i) => { idx = i; show(); window.scrollTo({ top: 0, behavior: "smooth" }); };
+
+    function show() {
+      const S = steps[idx], meta = LSTEP[S.t];
+      bar.style.width = ((idx + 1) / (steps.length + 1)) * 100 + "%";
+      pc.textContent = `${idx + 1} / ${steps.length}`;
+      prev.disabled = idx === 0;
+      next.textContent = idx === steps.length - 1 ? "완료하기 ✓" : S.t === "recall" ? "다음 훈련 →" : "다음";
+      renderStrip(meta.st);
+      stage.style.setProperty("--stc", meta.st ? `var(--st-${meta.st[0]})` : "var(--line)");
+      if (S.P) {
+        const s = subj(S.P.subject);
+        track.innerHTML = `<div class="tr-label" style="--sc:${s.color}">훈련 ${S.pi + 1} / ${TD.passages.length} · <span class="ex-subj">${s.icon} ${esc(S.P.subject)}</span> 「${esc(S.P.title)}」</div>
+          <div class="track-steps">${["read", "keys", "apply", "recall"].map((t) => `<span class="${LSTEP[t].st[0]} ${t === S.t ? "on" : ""}">${LSTEP[t].name}</span>`).join("")}</div>`;
+      } else track.innerHTML = "";
+      stage.innerHTML = "";
+      const key = S.P ? `${techId}-${n}-${S.pi}` : `${techId}-${n}-howto`;
+      const d = store.drafts[key] || (store.drafts[key] = {});
+      STEP[S.t](stage, { S, P: S.P, d, tech, techId, n, TD, goStep, idx });
+    }
+    function finish() {
+      store.done[`${techId}-${n}`] = true; save();
+      bar.style.width = "100%"; renderStrip(null);
+      const list = techsFor(n), nextT = list[list.findIndex((t) => t.id === techId) + 1];
+      stage.innerHTML = "";
+      stage.append(h(`<div class="done-box"><div class="big">🎉</div><h2>${esc(tech.name)} ${L.level} 훈련 완료!</h2>
+        <p class="muted">💡 오늘 저녁, 내일, 일주일 뒤에 요점을 한 번씩 다시 꺼내 보세요. 세 번 꺼내면 오래 남습니다.</p>
+        <div class="row" style="justify-content:center"><a class="btn ghost" href="#/lv/${n}">${L.level} 목록으로</a>
+        ${nextT ? `<a class="btn" href="#/t/${nextT.id}/${n}">다음: ${esc(nextT.name)} →</a>` : LV[n + 1] ? `<a class="btn" href="#/lv/${n + 1}">${LV[n + 1].level} 단계로 →</a>` : `<a class="btn" href="#/notes">내 기억 노트 →</a>`}</div></div>`));
+      track.innerHTML = "";
+      root.querySelector(".lesson-nav").style.display = "none";
+      pc.textContent = "완료";
+    }
+    prev.onclick = () => { if (idx > 0) goStep(idx - 1); };
+    next.onclick = () => { if (idx < steps.length - 1) goStep(idx + 1); else finish(); };
+    show();
+  }
+
+  const STEP = {
+    howto(el, { techId, n, TD }) {
+      const D = LV[n].demo;
+      el.append(h(`<div><span class="stage-tag kind">사용법 먼저 보기</span>
+        <h3 style="margin-top:8px">${esc(TECHS.find((t) => t.id === techId).name)}은(는) 이렇게 씁니다</h3>
+        ${TD.howto.body.map((p) => `<p>${esc(p)}</p>`).join("")}
+        <div class="tips">${TD.howto.tips.map((t) => `<div>✔ ${esc(t)}</div>`).join("")}</div>
+        ${techId === "palace" || techId === "combo" ? `<h4 style="margin:18px 0 8px">🏛️ 궁전으로 쓸 수 있는 장소</h4><div class="pal-grid">${PAL.map((p) => `<div class="pal-card"><div class="pal-name">${p.icon} ${esc(p.name)}</div><div class="pal-places">${p.places.map((x, i) => `<span>${i + 1} ${esc(x)}</span>`).join("")}</div></div>`).join("")}</div>` : ""}
+        <div class="howto-demo"><h4>👀 예시로 보기 — ${esc(D.subject)} 「${esc(D.title)}」</h4>
+          <div class="demo-step"><span class="ds-n write">요점</span>${keyList(D.keys, "compact")}</div>
+          <div class="demo-step"><span class="ds-n store">기억법 적용</span>${demoView(n, techId)}</div></div>
+        <p class="own-title" style="margin-top:14px">이제 다음 화면부터 직접 해 봅니다. 본문 → 요점 정리 → 기억법 → 꺼내기!</p></div>`));
+    },
+
+    read(el, { P, d }) {
+      d.hl = d.hl || [];
+      let w = 0;
+      const paras = P.text.map((p) => `<p>${p.split(" ").map((x) => `<span class="w ${d.hl.includes(w) ? "hl" : ""}" data-w="${w++}">${esc(x)}</span>`).join(" ")}</p>`).join("");
       const box = h(`<div>
-        <div class="fact"><div class="term">${esc(task.term)}</div><div>${esc(task.fact)}</div></div>
-        <label class="field">① 소리·뜻을 바꾼 사물</label><input type="text" class="a" placeholder="예) 소수 → 소" value="${esc(d.a)}">
-        <label class="field">② 뜻을 보여 주는 장면 (크게·움직이게·이상하게·감각)</label><textarea class="b" placeholder="장면을 영화처럼 적어 보세요">${esc(d.b)}</textarea>
-        <div class="hint">💡 힌트 <small>(예시일 뿐! 내가 아는 단어·장면으로 바꾸세요)</small><br>${esc(task.hint)}</div>
-        <div class="row" style="margin-top:14px"><button class="btn sv">저장하기</button><span class="saved-msg"></span></div></div>`);
+        <div class="howread">📖 <b>두 번 읽으세요.</b> 처음엔 흐름만, 두 번째엔 <b>연필로 중요한 단어에 밑줄</b>을 긋습니다. 화면에서는 단어를 눌러 형광펜으로 표시할 수 있어요.
+          <div class="muted" style="margin-top:4px">밑줄 기준: 이름(용어·사람·장소) · 숫자(연도) · 하는 일 · 결과</div></div>
+        <h3>${esc(P.title)}</h3>
+        <div class="sl-passage read-passage">${paras}</div>
+        <p class="muted hl-count"></p></div>`);
+      const cnt = box.querySelector(".hl-count");
+      const upd = () => (cnt.textContent = d.hl.length ? `형광펜 ${d.hl.length}개 — 밑줄은 한 문장에 2~3개면 충분해요.` : "");
+      box.querySelectorAll(".w").forEach((s) => (s.onclick = () => {
+        const i = +s.dataset.w, k = d.hl.indexOf(i);
+        if (k >= 0) d.hl.splice(k, 1); else d.hl.push(i);
+        s.classList.toggle("hl"); save(); upd();
+      }));
+      upd();
+      el.append(box);
+    },
+
+    keys(el, { P, d }) {
+      d.my = d.my || [];
+      const N = P.keys.length;
+      const box = h(`<div>
+        <details class="ref-mini"><summary>📖 본문 다시 보기</summary>${passageHTML(P.text)}</details>
+        <h3 style="margin-top:12px">요점 ${N}개를 정리하세요</h3>
+        <div class="rule-mini">✂️ 짧게 (이름만 남기기) · 🔢 번호 붙이기 · 🏷️ 앞에 머리말 · 📦 비슷한 것끼리 묶기</div>
+        <div class="my-keys">${Array.from({ length: N }, (_, i) => `<label class="mk"><span>${i + 1}</span><input type="text" data-i="${i}" placeholder="머리말 — 핵심 내용" value="${esc(d.my[i] || "")}"></label>`).join("")}</div>
+        <div class="gate-slot"></div></div>`);
+      box.querySelectorAll(".mk input").forEach((inp) => inp.addEventListener("input", () => { d.my[+inp.dataset.i] = inp.value; save(); }));
+      box.querySelector(".gate-slot").append(revealGate(d, "모범 요점과 비교하기", (bd) => {
+        bd.append(h(`<div>${keyList(P.keys)}<p class="sl-note">내 요점과 비교해 빠진 것을 공책에 보충하세요. 다음 단계부터는 이 요점을 기억법으로 바꿉니다.</p></div>`));
+      }, () => d.my.some((x) => String(x || "").trim()), { head: "📒 모범 요점", after: "", flag: "openedKeys" }));
+      el.append(box);
+    },
+
+    apply(el, ctx) {
+      const { P, d, techId } = ctx;
+      const N = P.keys.length;
+      d.sc = d.sc || [];
+      const box = h(`<div><h3>요점을 기억법으로 바꾸기</h3>
+        <div class="apply-keys"><div class="ak-title">📒 외울 요점</div>${keyList(P.keys, "compact")}</div>
+        ${OWN_NOTICE}<div class="builder"></div>
+        <div class="hint">💡 힌트 <small>(내가 아는 것으로 바꿔서 쓰세요)</small><br>${esc(P.hint)}</div>
+        <div class="gate-slot"></div>
+        <div class="row" style="margin-top:14px"><button class="btn soft sv">📒 내 기억 노트에 저장</button><span class="saved-msg"></span></div></div>`);
+      const B = box.querySelector(".builder");
+
+      const acroPart = () => {
+        d.ord = d.ord && d.ord.length === N ? d.ord : P.keys.map((_, i) => i);
+        const w = h(`<div class="b-sec"><div class="b-title">🔤 두문자어 만들기</div>
+          <div class="letters"></div>
+          <div class="row"><span class="muted ord-note">${P.order === false ? "순서가 상관없는 목록이에요. 섞어서 소리 내기 쉬운 조합을 찾아보세요." : "순서가 중요한 목록이에요. 순서를 바꾸지 마세요."}</span>${P.order === false ? `<button class="btn soft sm shf">🔀 순서 섞기</button>` : ""}</div>
+          <label class="field">내가 만든 두문자어 · 문장</label><input type="text" class="ph" placeholder="글자를 리듬 있게 끊거나, 내가 아는 말로 문장을 만들어 보세요" value="${esc(d.ph || "")}"></div>`);
+        const draw = () => (w.querySelector(".letters").innerHTML = d.ord.map((i) => `<div class="acro-cell"><div class="acro-big sm">${esc(acroOf(P.keys[i]))}</div><div class="acro-sub">${esc(P.keys[i].head)}</div></div>`).join(""));
+        draw();
+        const sh = w.querySelector(".shf");
+        if (sh) sh.onclick = () => { d.ord = shuffle(d.ord); save(); draw(); };
+        w.querySelector(".ph").addEventListener("input", (e) => { d.ph = e.target.value; save(); });
+        return w;
+      };
+      const palacePart = () => {
+        d.pal = d.pal || P.palace || "body";
+        if (!d.pl || d.pl.length !== N) d.pl = d.pal === P.palace && P.places ? P.places.slice() : palById(d.pal).places.slice(0, N);
+        const w = h(`<div class="b-sec"><div class="b-title">🏛️ 궁전 고르기 → 장소마다 장면 붙이기</div>
+          <div class="pal-pick">${PAL.map((p) => `<button class="pp ${p.id === d.pal ? "on" : ""}" data-p="${p.id}">${p.icon} ${esc(p.name)}</button>`).join("")}</div>
+          <div class="pal-rows">${P.keys.map((k, i) => `<div class="pal-row"><input type="text" class="pl" data-i="${i}" value="${esc(d.pl[i] || "")}" placeholder="장소"><span class="pr-key">← ${i + 1}. ${esc(k.head)}</span>
+            <textarea class="scn" data-i="${i}" placeholder="이 장소에 '${esc(k.head)}'이(가) 직접 닿는 과장된 장면">${esc(d.sc[i] || "")}</textarea></div>`).join("")}</div></div>`);
+        w.querySelectorAll(".pp").forEach((b) => (b.onclick = () => {
+          d.pal = b.dataset.p;
+          const p = palById(d.pal);
+          d.pl = d.pal === P.palace && P.places ? P.places.slice() : p.places.slice(0, N);
+          while (d.pl.length < N) d.pl.push("");
+          save(); B.innerHTML = ""; build();
+        }));
+        w.querySelectorAll(".pl").forEach((x) => x.addEventListener("input", () => { d.pl[+x.dataset.i] = x.value; save(); }));
+        w.querySelectorAll(".scn").forEach((x) => x.addEventListener("input", () => { d.sc[+x.dataset.i] = x.value; save(); }));
+        return w;
+      };
+      const assocPart = () => {
+        const w = h(`<div class="b-sec"><div class="b-title">🖼️ 요점마다 장면 만들기 ${n2story(ctx.n)}</div>
+          ${P.keys.map((k, i) => `<div class="as-row"><div class="as-key">${i + 1}. ${esc(k.head)} <small>${esc(k.text || "")}</small></div>
+          <textarea class="scn" data-i="${i}" placeholder="내가 아는 것으로 크게·움직이게·이상하게">${esc(d.sc[i] || "")}</textarea></div>`).join("")}</div>`);
+        w.querySelectorAll(".scn").forEach((x) => x.addEventListener("input", () => { d.sc[+x.dataset.i] = x.value; save(); }));
+        return w;
+      };
+      function build() {
+        if (techId === "assoc") B.append(assocPart());
+        if (techId === "palace") B.append(palacePart());
+        if (techId === "acro") B.append(acroPart());
+        if (techId === "combo") B.append(acroPart(), palacePart());
+      }
+      build();
+      box.querySelector(".gate-slot").append(revealGate(d, "예시 참고하기", (bd) => {
+        bd.append(h(Array.isArray(P.example) ? `<ol class="ex-list">${P.example.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>` : `<p class="ex-text">${esc(P.example)}</p>`));
+      }, () => (d.sc || []).some((x) => String(x || "").trim()) || String(d.ph || "").trim()));
       box.querySelector(".sv").onclick = () => {
-        const a = box.querySelector(".a").value.trim(), b = box.querySelector(".b").value.trim();
-        store.drafts[key] = { a, b }; save();
-        if (!a && !b) return;
-        addNote(tech, `연상 이미지 · ${task.subject}`, task.term, `${task.fact}\n\n🔁 ${a}\n🎬 ${b}`, key);
+        const lines = P.keys.map((k, i) => `${i + 1}. ${k.head}${d.pl ? ` @${d.pl[i] || ""}` : ""}${d.sc && d.sc[i] ? ` — ${d.sc[i]}` : ""}`);
+        addNote(TECHS.find((t) => t.id === techId), `${TECHS.find((t) => t.id === techId).name} · ${P.subject}`, P.title, `${d.ph ? `🔤 ${d.ph}\n` : ""}${lines.join("\n")}`, `${techId}-${ctx.n}-${ctx.S.pi}`);
         savedFlash(box);
       };
       el.append(box);
     },
 
-    story(el, s, key, tech, task) {
-      const d = store.drafts[key] || { scenes: ["", "", ""] };
-      const box = h(`<div>
-        <div class="fact"><div class="term">${esc(task.term)}</div><div>${esc(task.fact)}</div></div>
-        <div class="hint">💡 힌트 <small>(예시일 뿐! 내가 아는 단어·장면으로 바꾸세요)</small><br>${esc(task.hint)}</div>
-        <label class="field">장면 사슬 (앞 장면의 물건이 다음 장면을 부르도록)</label><div class="palace-rows scenes"></div>
-        <div class="row" style="margin-top:10px"><button class="btn soft sm add">+ 장면 추가</button></div>
-        <div class="row" style="margin-top:14px"><button class="btn sv">저장하기</button><span class="saved-msg"></span></div></div>`);
-      const wrap = box.querySelector(".scenes");
-      const addRow = (v) => {
-        const n = wrap.children.length + 1;
-        const r = h(`<div class="palace-row" style="grid-template-columns:34px 1fr 40px"><span class="n">${n}</span><input type="text" placeholder="${n === 1 ? "무대(조건·처음)" : "다음 장면"}" value="${esc(v)}"><button class="icon-btn" title="삭제">✕</button></div>`);
-        r.querySelector("button").onclick = () => { r.remove(); [...wrap.children].forEach((c, i) => (c.querySelector(".n").textContent = i + 1)); };
-        wrap.append(r);
+    recall(el, { P, d, techId, goStep, idx }) {
+      d.rc = d.rc || [];
+      const N = P.keys.length;
+      const cueOf = (i) => {
+        if ((techId === "palace" || techId === "combo") && d.pl) return `${d.pl[i] || ""}${techId === "combo" ? " · " + acroOf(P.keys[i]) : ""}`;
+        if (techId === "acro") { const o = d.ord && d.ord.length === N ? d.ord : P.keys.map((_, j) => j); return acroOf(P.keys[o[i]]); }
+        const s = (d.sc && d.sc[i]) || ""; return s ? s.slice(0, 14) + "…" : `${i + 1}번째 장면`;
       };
-      d.scenes.forEach(addRow);
-      box.querySelector(".add").onclick = () => addRow("");
-      box.querySelector(".sv").onclick = () => {
-        const scenes = [...wrap.querySelectorAll("input")].map((i) => i.value.trim());
-        store.drafts[key] = { scenes }; save();
-        const filled = scenes.filter(Boolean);
-        if (!filled.length) return;
-        addNote(tech, `이야기 사슬 · ${task.subject}`, task.term, filled.map((x, i) => `${i + 1}. ${x}`).join("\n"), key);
-        savedFlash(box);
-      };
-      el.append(box);
-    },
-
-    palace(el, s, key, tech, task) {
-      const n = Math.max(task.items.length, s.defaultPlaces.length);
-      const d = store.drafts[key] || { name: "", places: Array.from({ length: n }, (_, i) => s.defaultPlaces[i] || ""), items: Array.from({ length: n }, (_, i) => task.items[i] || "") };
-      const box = h(`<div>
-        <p class="task-topic">📌 ${esc(task.subject)} — ${esc(task.topic)}</p>
-        <label class="field">궁전 이름</label><input type="text" class="nm" placeholder="예) 우리 집 — ${esc(task.topic)}" value="${esc(d.name)}">
-        <label class="field">장소 → 놓을 내용 (내용 뒤에 장면을 덧붙여 보세요)</label><div class="palace-rows rows"></div>
-        <div class="row" style="margin-top:10px"><button class="btn soft sm add">+ 장소 추가</button></div>
-        <div class="row" style="margin-top:14px"><button class="btn sv">저장하기</button>${s.selfTest ? `<button class="btn ghost st">💡 셀프 테스트</button>` : ""}<span class="saved-msg"></span></div>
-        <div class="tz"></div></div>`);
-      const rows = box.querySelector(".rows");
-      const addRow = (p, it) => {
-        const k = rows.children.length + 1;
-        const r = h(`<div class="palace-row"><span class="n">${k}</span><input type="text" class="p" placeholder="장소" value="${esc(p)}"><input type="text" class="i" placeholder="외울 내용 + 장면" value="${esc(it)}"><button class="icon-btn" title="삭제">✕</button></div>`);
-        r.querySelector("button").onclick = () => { r.remove(); [...rows.children].forEach((c, i) => (c.querySelector(".n").textContent = i + 1)); };
-        rows.append(r);
-      };
-      d.places.forEach((p, i) => addRow(p, d.items[i] || ""));
-      box.querySelector(".add").onclick = () => addRow("", "");
-      const collect = () => {
-        const pairs = [...rows.children].map((r) => [r.querySelector(".p").value.trim(), r.querySelector(".i").value.trim()]);
-        const name = box.querySelector(".nm").value.trim();
-        store.drafts[key] = { name, places: pairs.map((x) => x[0]), items: pairs.map((x) => x[1]) }; save();
-        return { name, pairs: pairs.filter((x) => x[0] && x[1]) };
-      };
-      box.querySelector(".sv").onclick = () => {
-        const { name, pairs } = collect();
-        if (!pairs.length) { box.querySelector(".saved-msg").textContent = "장소를 1곳 이상 적어 주세요"; return; }
-        addNote(tech, `기억의 궁전 · ${task.subject}`, name || task.topic, pairs.map((x, i) => `${i + 1}. ${x[0]} → ${x[1]}`).join("\n"), key);
-        savedFlash(box);
-      };
-      const st = box.querySelector(".st");
-      if (st) st.onclick = () => {
-        const { pairs } = collect(), tz = box.querySelector(".tz");
-        if (pairs.length < 2) { tz.innerHTML = `<div class="feedback bad">장소와 내용을 2개 이상 채워 주세요.</div>`; return; }
-        selfTest(tz, pairs.map(([p, it]) => ({ q: p, a: it })), "이 장소에 무엇을 놓았나요?");
-      };
-      el.append(box);
-    },
-
-    acro(el, s, key, tech, task) {
-      const d = store.drafts[key] || { list: task.items.join("\n"), phrase: "", scene: "" };
-      const box = h(`<div>
-        <p class="task-topic">📌 ${esc(task.subject)} — ${esc(task.topic)}</p>
-        <label class="field">외울 항목 (한 줄에 하나)</label><textarea class="ls">${esc(d.list)}</textarea>
-        <div class="row" style="margin-top:12px"><b>뽑힌 첫 글자</b><span class="spacer"></span>${s.shuffle ? `<button class="btn soft sm sh">🔀 순서 섞기 (순서 무관할 때만)</button>` : ""}</div>
-        <div class="letters"></div>
-        <label class="field">내가 만든 두문자어 / 뜻 있는 문장</label><input type="text" class="ph" placeholder="예) 수금지화 목토천해" value="${esc(d.phrase)}">
-        <label class="field">떠올릴 장면 (선택)</label><input type="text" class="sc" placeholder="예) 대성이가 높이 올라갈수록 열이 났다 내렸다" value="${esc(d.scene)}">
-        <div class="row" style="margin-top:14px"><button class="btn sv">저장하기</button>${s.selfTest ? `<button class="btn ghost st">💡 셀프 테스트</button>` : ""}<span class="saved-msg"></span></div>
-        <div class="tz"></div></div>`);
-      const ls = box.querySelector(".ls"), letters = box.querySelector(".letters");
-      const items = () => ls.value.split("\n").map((x) => x.trim()).filter(Boolean);
-      const draw = () => { letters.innerHTML = items().map((x) => `<span class="letter" title="${esc(x)}">${esc(firstChar(x))}</span>`).join("") || `<span class="muted">항목을 입력하면 여기에 나타나요</span>`; };
-      ls.addEventListener("input", draw); draw();
-      const sh = box.querySelector(".sh");
-      if (sh) sh.onclick = () => { ls.value = shuffle(items()).join("\n"); draw(); };
-      const persist = () => { store.drafts[key] = { list: items().join("\n"), phrase: box.querySelector(".ph").value.trim(), scene: box.querySelector(".sc").value.trim() }; save(); };
-      box.querySelector(".sv").onclick = () => {
-        persist();
-        const list = items(); if (!list.length) return;
-        const acr = list.map(firstChar).join(""), dd = store.drafts[key];
-        addNote(tech, `두문자어 · ${task.subject}`, dd.phrase || acr, `🔤 ${acr}${dd.scene ? `\n🎬 ${dd.scene}` : ""}\n` + list.map((x) => `· ${x}`).join("\n"), key);
-        savedFlash(box);
-      };
-      const st = box.querySelector(".st");
-      if (st) st.onclick = () => {
-        persist();
-        const list = items(), tz = box.querySelector(".tz");
-        if (list.length < 2) { tz.innerHTML = `<div class="feedback bad">항목을 2개 이상 적어 주세요.</div>`; return; }
-        selfTest(tz, list.map((x, i) => ({ q: `${i + 1}번째 글자 「${firstChar(x)}」`, a: x })), "이 글자는 무엇의 첫 글자였나요?");
+      const box = h(`<div><h3>💡 보지 말고 꺼내기</h3>
+        <p>본문과 요점을 보지 말고, 기억법을 떠올리며 요점 ${N}개를 적어 보세요. 막히면 '단서 보기'를 누르세요.</p>
+        <div class="rc-list">${Array.from({ length: N }, (_, i) => `<label class="rc-item"><span class="rc-cue">${i + 1}. <b class="cue" hidden>${esc(cueOf(i))}</b></span><input type="text" data-i="${i}" value="${esc(d.rc[i] || "")}" placeholder="${i + 1}번째 요점"></label>`).join("")}</div>
+        <div class="row" style="margin-top:12px"><button class="btn soft cue-btn">🔑 단서 보기</button><button class="btn chk">채점하기</button></div>
+        <div class="rc-out"></div></div>`);
+      box.querySelectorAll(".rc-item input").forEach((x) => x.addEventListener("input", () => { d.rc[+x.dataset.i] = x.value; save(); }));
+      box.querySelector(".cue-btn").onclick = () => box.querySelectorAll(".cue").forEach((c) => (c.hidden = false));
+      box.querySelector(".chk").onclick = () => {
+        const answers = d.rc.map(norm).filter(Boolean);
+        const hits = P.keys.map((k) => (k.k || [k.head]).some((w) => answers.some((a) => a.includes(norm(w)))));
+        const ok = hits.filter(Boolean).length;
+        d.score = ok; save();
+        const out = box.querySelector(".rc-out");
+        out.innerHTML = `<div class="score-line">${ok} / ${N}개 꺼냈어요 ${ok === N ? "🎉" : ""}</div>
+          <div class="rc-result">${P.keys.map((k, i) => `<div class="${hits[i] ? "hit" : "miss"}">${hits[i] ? "✅" : "❌"} <b>${esc(k.head)}</b> ${esc(k.text || "")}</div>`).join("")}</div>
+          ${ok < N ? `<p class="muted">❌ 표시된 요점은 장면을 더 크게, 더 이상하게 바꿔 다시 저장해 보세요.</p>` : `<p class="muted">완벽해요! 내일 한 번 더 꺼내 보면 오래 남습니다.</p>`}`;
+        if (ok < N) {
+          const back = h(`<button class="btn ghost sm">← 기억법 다시 고치기</button>`);
+          back.onclick = () => goStep(idx - 1);
+          out.append(back);
+        }
       };
       el.append(box);
     },
   };
-
-  /* ---------- 셀프 테스트 (플래시카드) ---------- */
-  function selfTest(el, cards, ask) {
-    renderStrip(["recall"]);
-    let i = 0, ok = 0;
-    const step = () => {
-      if (i >= cards.length) {
-        el.innerHTML = `<div class="flash"><div class="q">${ok} / ${cards.length}</div><div class="a">${ok === cards.length ? "모두 꺼냈어요! 🎉" : "못 꺼낸 것만 장면을 더 과장해서 다시 만들어 보세요."}</div></div>`;
-        return;
-      }
-      const c = cards[i];
-      el.innerHTML = "";
-      const f = h(`<div class="flash"><div class="muted">💡 ${esc(ask)} (${i + 1}/${cards.length})</div><div class="q">${esc(c.q)}</div><div class="a"></div>
-        <div class="row" style="justify-content:center;margin-top:12px"><button class="btn rv">정답 보기</button></div></div>`);
-      const a = f.querySelector(".a"), row = f.querySelector(".row");
-      f.querySelector(".rv").onclick = () => {
-        a.textContent = c.a; row.innerHTML = "";
-        const y = h(`<button class="btn" style="background:var(--good)">꺼냈어요</button>`);
-        const n = h(`<button class="btn" style="background:var(--bad)">못 꺼냈어요</button>`);
-        y.onclick = () => { ok++; i++; step(); };
-        n.onclick = () => { i++; step(); };
-        row.append(n, y);
-      };
-      el.append(f);
-    };
-    step();
-  }
+  const n2story = (n) => (n === 2 ? `<small class="muted">— 앞 장면의 물건이 다음 장면에 다시 나오게 이야기로 이어 보세요</small>` : "");
 
   /* ---------- 내 기억 노트 ---------- */
   function renderNotes() {
